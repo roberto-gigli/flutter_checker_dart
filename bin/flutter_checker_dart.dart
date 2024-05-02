@@ -33,7 +33,7 @@ Future<String> _systemRun(
     runInShell: true,
   );
 
-  return result.stdout.toString();
+  return result.stdout.toString() + result.stderr.toString();
 }
 
 Future<String?> getFlutterVersion() async {
@@ -134,13 +134,15 @@ void run(List<String> args) async {
 
     if (projectVersion != flutterVersion) {
       print("Flutter version is not synced with project version. Syncing...");
-      print(await _systemRun("git checkout $projectVersion", cwd: flutterPath));
+      await _systemRun("git fetch", cwd: flutterPath).then(print);
+      await _systemRun("git checkout $projectVersion", cwd: flutterPath)
+          .then(print);
       print("Running flutter doctor...");
-      await _systemRun("flutter doctor");
-      await _systemRun("flutter clean");
-      await _systemRun("flutter pub upgrade");
+      await _systemRun("flutter doctor").then(print);
+      await _systemRun("flutter clean").then(print);
+      await _systemRun("flutter pub upgrade").then(print);
       if (Platform.isMacOS) {
-        await _systemRun("pod update", cwd: "./ios");
+        await _systemRun("pod update", cwd: "./ios").then(print);
       }
       print("Completed.");
       await updateStatus();
