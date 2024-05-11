@@ -11,10 +11,18 @@ String? flutterPath;
 
 ArgParser buildParser() {
   return ArgParser()
-    ..addOption("workingDirectory",
-        abbr: "d",
-        mandatory: false,
-        help: "Used to set the working directory of this command");
+    ..addOption(
+      "workingDirectory",
+      abbr: "d",
+      mandatory: false,
+      help: "Used to set the working directory of this command",
+    )
+    ..addOption(
+      "desiredVersion",
+      abbr: "v",
+      mandatory: false,
+      help: "Used to set the version to which you want to upgrade flutter",
+    );
 }
 
 void printUsage(ArgParser argParser) {
@@ -92,9 +100,21 @@ void printStatus() {
 }
 
 Future<void> updateStatus() async {
-  projectVersion = await getProjectVersion();
   flutterVersion = await getFlutterVersion();
   flutterPath = await getFlutterPath();
+}
+
+Future<void> changeVersion(String version) async {
+  await _systemRun("git fetch", cwd: flutterPath).then(print);
+  await _systemRun("git checkout $version", cwd: flutterPath).then(print);
+  print("Running flutter doctor...");
+  await _systemRun("flutter doctor").then(print);
+  await _systemRun("flutter clean").then(print);
+  await _systemRun("flutter pub upgrade").then(print);
+  if (Platform.isMacOS) {
+    await _systemRun("pod update", cwd: "./ios").then(print);
+  }
+  print("Completed.");
 }
 
 void run(List<String> args) async {
@@ -103,6 +123,7 @@ void run(List<String> args) async {
     final ArgResults results = argParser.parse(args);
 
     final dirPath = results.option("workingDirectory");
+    final desiredVersion = results.option("desiredVersion")?.trim();
 
     final dir = switch (dirPath) {
       null => null,
@@ -126,6 +147,19 @@ void run(List<String> args) async {
     await updateStatus();
     printStatus();
 
+    if (desiredVersion != null && desiredVersion.isNotEmpty) {
+      print("DesiredVersion: $desiredVersion");
+
+      if (desiredVersion != flutterVersion) {
+        print("Syncing flutter version with desired version...");
+        await changeVersion(desiredVersion);
+        await updateStatus();
+        printStatus();
+      }
+
+      return;
+    }
+
     if (projectVersion == null) {
       print(
           "Project flutter version is not set.\nPlease set it in pubspec.yaml -> environment -> flutter.");
@@ -134,20 +168,12 @@ void run(List<String> args) async {
 
     if (projectVersion != flutterVersion) {
       print("Flutter version is not synced with project version. Syncing...");
-      await _systemRun("git fetch", cwd: flutterPath).then(print);
-      await _systemRun("git checkout $projectVersion", cwd: flutterPath)
-          .then(print);
-      print("Running flutter doctor...");
-      await _systemRun("flutter doctor").then(print);
-      await _systemRun("flutter clean").then(print);
-      await _systemRun("flutter pub upgrade").then(print);
-      if (Platform.isMacOS) {
-        await _systemRun("pod update", cwd: "./ios").then(print);
-      }
-      print("Completed.");
+      await changeVersion(projectVersion ?? "");
       await updateStatus();
       printStatus();
+      return;
     }
+    print("Flutter version is already synced with project version :)");
   } on FormatException catch (e) {
     // Print usage information if an invalid argument was provided.
     print(e.message);
