@@ -102,6 +102,7 @@ void printStatus() {
 Future<void> updateStatus() async {
   flutterVersion = await getFlutterVersion();
   flutterPath = await getFlutterPath();
+  projectVersion = await getProjectVersion();
 }
 
 Future<void> changeVersion(String version) async {
