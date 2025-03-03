@@ -8,6 +8,7 @@ const String version = '0.0.1';
 String? projectVersion;
 String? flutterVersion;
 String? flutterPath;
+String? flutterRootPath;
 
 ArgParser buildParser() {
   return ArgParser()
@@ -77,6 +78,30 @@ Future<String?> getFlutterPath() async {
   }
 }
 
+Future<String?> getFlutterRootPath() async {
+  try {
+    if (Platform.isWindows) {
+      final output = await _systemRun("where flutter");
+      final result = output.split("\n")[0].split("\\");
+      result.removeLast();
+      result.removeLast();
+      return result.join("\\");
+    }
+
+    if (Platform.isMacOS || Platform.isLinux) {
+      final output = await _systemRun("which flutter");
+      final result = output.trim().split("/");
+      result.removeLast();
+      result.removeLast();
+      return result.join("/");
+    }
+
+    return null;
+  } on Exception {
+    return null;
+  }
+}
+
 Future<String?> getProjectVersion() async {
   final pubpsecFile = File("pubspec.yaml");
 
@@ -97,17 +122,39 @@ void printStatus() {
   print("Project version: $projectVersion");
   print("Flutter version: $flutterVersion");
   print("Flutter path: $flutterPath");
+  print("Flutter root path: $flutterRootPath");
 }
 
 Future<void> updateStatus() async {
   flutterVersion = await getFlutterVersion();
   flutterPath = await getFlutterPath();
+  flutterRootPath = await getFlutterRootPath();
   projectVersion = await getProjectVersion();
 }
 
 Future<void> changeVersion(String version) async {
+  print("Cleaning flutter working tree");
+  await _systemRun("git reset --hard", cwd: flutterPath).then(print);
+  print("Checking out $version...");
   await _systemRun("git fetch", cwd: flutterPath).then(print);
   await _systemRun("git checkout $version", cwd: flutterPath).then(print);
+  print("Cleaning flutter working tree");
+  await _systemRun("git reset --hard", cwd: flutterPath).then(print);
+
+  if (version == "3.29.0") {
+    //https://github.com/flutter/flutter/issues/163308#issuecomment-2661479464
+    print("Applying workaround for Flutter 3.29.0...");
+    print("Removing /engine/src/.gn...");
+
+    if (Platform.isWindows) {
+      await _systemRun("del .\\engine\\src\\.gn", cwd: flutterRootPath);
+    }
+
+    if (Platform.isMacOS || Platform.isLinux) {
+      await _systemRun("rm -rf ./engine/src/.gn", cwd: flutterRootPath);
+    }
+  }
+
   print("Running flutter doctor...");
   await _systemRun("flutter doctor").then(print);
   await _systemRun("flutter clean").then(print);
