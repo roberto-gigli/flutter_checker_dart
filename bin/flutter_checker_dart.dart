@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:yaml/yaml.dart';
 
-const String version = '0.0.1';
+const String version = '0.0.2';
 
 String? projectVersion;
 String? flutterVersion;
@@ -169,6 +169,8 @@ void run(List<String> args) async {
   final ArgParser argParser = buildParser();
   try {
     final ArgResults results = argParser.parse(args);
+
+    print("Flutter checker version v$version");
 
     final dirPath = results.option("workingDirectory");
     final desiredVersion = results.option("desiredVersion")?.trim();
